@@ -74,7 +74,7 @@ export default function Page() {
         <Link href={`/posts/${post.id}/edit`}>수정</Link>
       </div>
 
-      <h2>댓글 목록</h2>
+      <h2>댓글 목록 ({postComments?.length ?? 0})</h2>
 
       {postComments == null && <div>댓글 로딩중...</div>}
 
