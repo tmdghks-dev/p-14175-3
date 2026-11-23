@@ -46,14 +46,17 @@ export default function Page() {
     fetch(`http://localhost:8080/api/v1/posts/${id}/comments/${commentId}`, {
       method: "DELETE",
     })
-      .then((res) => res.json())
-      .then((rsData) => {
+      .then(async (res) => {
+        const rsData = await res.json();
+
         alert(rsData.msg);
 
-        if (postComments == null) return;
+        if (!res.ok) return;
 
-        setPostComments(
-          postComments.filter((comment) => comment.id != commentId),
+        setPostComments((prev) =>
+          prev == null
+            ? prev
+            : prev.filter((comment) => comment.id != commentId),
         );
       });
   };
