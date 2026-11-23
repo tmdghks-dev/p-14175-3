@@ -61,6 +61,33 @@ export default function Page() {
       });
   };
 
+  const writeComment = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+    const content = form.elements.namedItem("content") as HTMLTextAreaElement;
+
+    fetch(`http://localhost:8080/api/v1/posts/${id}/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        content: content.value,
+      }),
+    }).then(async (res) => {
+      const rsData = await res.json();
+
+      alert(rsData.msg);
+
+      if (!res.ok) return;
+
+      setPostComments((prev) =>
+        prev == null ? [rsData.data] : [...prev, rsData.data],
+      );
+    });
+  };
+
   useEffect(() => {
     fetch(`http://localhost:8080/api/v1/posts/${id}`)
       .then(async (res) => {
@@ -94,6 +121,20 @@ export default function Page() {
         <button onClick={deletePost}>삭제</button>
         <Link href={`/posts/${post.id}/edit`}>수정</Link>
       </div>
+
+      <h2>댓글 작성</h2>
+
+      <form onSubmit={writeComment} className="flex flex-col gap-2 p-2">
+        <textarea
+          className="border p-2 rounded"
+          name="content"
+          placeholder="댓글 내용"
+          rows={3}
+        />
+        <button className="border p-2 rounded" type="submit">
+          작성
+        </button>
+      </form>
 
       <h2>댓글 목록 ({postComments?.length ?? 0})</h2>
 
