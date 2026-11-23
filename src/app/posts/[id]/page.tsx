@@ -31,9 +31,18 @@ export default function Page() {
 
   useEffect(() => {
     fetch(`http://localhost:8080/api/v1/posts/${id}`)
-      .then((res) => res.json())
-      .then(setPost);
-  }, [id]);
+      .then(async (res) => {
+        const data = await res.json();
+
+        if (!res.ok) {
+          alert(data.msg);
+          router.replace("/posts");
+          return;
+        }
+
+        setPost(data);
+      });
+  }, [id, router]);
 
   if (post == null) return <div>로딩중...</div>;
 
