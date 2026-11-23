@@ -85,6 +85,9 @@ export default function Page() {
       setPostComments((prev) =>
         prev == null ? [rsData.data] : [...prev, rsData.data],
       );
+
+      content.value = "";
+      content.focus();
     });
   };
 
