@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -54,8 +55,9 @@ export default function Page() {
       <div>제목 : {post.title}</div>
       <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
 
-      <div>
+      <div className="flex gap-2">
         <button onClick={deletePost}>삭제</button>
+        <Link href={`/posts/${post.id}/edit`}>수정</Link>
       </div>
     </>
   );
