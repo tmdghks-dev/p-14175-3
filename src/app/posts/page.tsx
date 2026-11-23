@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type PostDto = {
@@ -28,7 +29,9 @@ export default function Page() {
       <ul>
         {posts.map((post) => (
           <li key={post.id}>
-            {post.id} : {post.title}
+            <Link href={`/posts/${post.id}`}>
+              {post.id} : {post.title}
+            </Link>
           </li>
         ))}
       </ul>
