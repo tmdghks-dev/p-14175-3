@@ -1,47 +1,109 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
+import type { PostCommentDto, PostWithContentDto } from "@/type/post";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/lib/backend/client";
-import type { PostCommentDto, PostWithContentDto } from "@/type/post";
 
+type RsData = { resultCode: string; msg: string };
 
-export default function Page() {
+const alertError = (error: RsData) =>
+  alert(`${error.resultCode} : ${error.msg}`);
+
+function usePost(id: number) {
   const router = useRouter();
-  const { id } = useParams<{ id: string }>();
   const [post, setPost] = useState<PostWithContentDto | null>(null);
+
+  useEffect(() => {
+    apiFetch(`/api/v1/posts/${id}`)
+      .then(setPost)
+      .catch((error) => {
+        alertError(error);
+        router.replace("/posts");
+      });
+  }, [id, router]);
+
+  const deletePost = (onSuccess: (rsData: RsData) => void) => {
+    apiFetch(`/api/v1/posts/${id}`, { method: "DELETE" })
+      .then(onSuccess)
+      .catch(alertError);
+  };
+
+  return { post, deletePost };
+}
+
+function usePostComments(postId: number) {
   const [postComments, setPostComments] = useState<PostCommentDto[] | null>(
     null,
   );
 
-  const deletePost = () => {
+  useEffect(() => {
+    apiFetch(`/api/v1/posts/${postId}/comments`)
+      .then(setPostComments)
+      .catch(alertError);
+  }, [postId]);
+
+  const deleteComment = (
+    commentId: number,
+    onSuccess: (rsData: RsData) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
+      method: "DELETE",
+    })
+      .then((rsData) => {
+        setPostComments((prev) =>
+          prev == null ? prev : prev.filter((c) => c.id != commentId),
+        );
+        onSuccess(rsData);
+      })
+      .catch(alertError);
+  };
+
+  const writeComment = (
+    content: string,
+    onSuccess: (rsData: RsData) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    })
+      .then((rsData) => {
+        setPostComments((prev) =>
+          prev == null ? [rsData.data] : [...prev, rsData.data],
+        );
+        onSuccess(rsData);
+      })
+      .catch(alertError);
+  };
+
+  return { postId, postComments, deleteComment, writeComment };
+}
+
+export default function Page() {
+  const router = useRouter();
+  const { id: idStr } = useParams<{ id: string }>();
+  const id = Number(idStr);
+
+  const { post, deletePost } = usePost(id);
+  const { postComments, deleteComment, writeComment } = usePostComments(id);
+
+  const handleDeletePost = () => {
     if (!confirm(`${id}번 글을 삭제하시겠습니까?`)) return;
 
-    apiFetch(`/api/v1/posts/${id}`, { method: "DELETE" })
-      .then((rsData) => {
-        alert(rsData.msg);
-        router.replace("/posts");
-      })
-      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
+    deletePost((rsData) => {
+      alert(rsData.msg);
+      router.replace("/posts");
+    });
   };
 
-  const deleteComment = (commentId: number) => {
+  const handleDeleteComment = (commentId: number) => {
     if (!confirm(`${commentId}번 댓글을 삭제하시겠습니까?`)) return;
 
-    apiFetch(`/api/v1/posts/${id}/comments/${commentId}`, { method: "DELETE" })
-      .then((rsData) => {
-        alert(rsData.msg);
-        setPostComments((prev) =>
-          prev == null
-            ? prev
-            : prev.filter((comment) => comment.id != commentId),
-        );
-      })
-      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
+    deleteComment(commentId, (rsData) => alert(rsData.msg));
   };
 
-  const writeComment = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleWriteComment = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const form = e.currentTarget;
@@ -56,31 +118,12 @@ export default function Page() {
       return;
     }
 
-    apiFetch(`/api/v1/posts/${id}/comments`, {
-      method: "POST",
-      body: JSON.stringify({ content: contentTextarea.value }),
-    })
-      .then((rsData) => {
-        alert(rsData.msg);
-        setPostComments((prev) =>
-          prev == null ? [rsData.data] : [...prev, rsData.data],
-        );
-        contentTextarea.value = "";
-        contentTextarea.focus();
-      })
-      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
+    writeComment(contentTextarea.value, (rsData) => {
+      alert(rsData.msg);
+      contentTextarea.value = "";
+      contentTextarea.focus();
+    });
   };
-
-  useEffect(() => {
-    apiFetch(`/api/v1/posts/${id}`)
-      .then(setPost)
-      .catch((error) => {
-        alert(`${error.resultCode} : ${error.msg}`);
-        router.replace("/posts");
-      });
-
-    apiFetch(`/api/v1/posts/${id}/comments`).then(setPostComments);
-  }, [id, router]);
 
   if (post == null) return <div>로딩중...</div>;
 
@@ -93,13 +136,13 @@ export default function Page() {
       <div style={{ whiteSpace: "pre-line" }}>{post.content}</div>
 
       <div className="flex gap-2">
-        <button onClick={deletePost}>삭제</button>
+        <button onClick={handleDeletePost}>삭제</button>
         <Link href={`/posts/${post.id}/edit`}>수정</Link>
       </div>
 
       <h2>댓글 작성</h2>
 
-      <form onSubmit={writeComment} className="flex flex-col gap-2 p-2">
+      <form onSubmit={handleWriteComment} className="flex flex-col gap-2 p-2">
         <textarea
           className="border p-2 rounded"
           name="content"
@@ -127,7 +170,7 @@ export default function Page() {
               {comment.id} : {comment.content}
               <button
                 className="ml-2"
-                onClick={() => deleteComment(comment.id)}
+                onClick={() => handleDeleteComment(comment.id)}
               >
                 삭제
               </button>
