@@ -77,7 +77,27 @@ function usePostComments(postId: number) {
       .catch(alertError);
   };
 
-  return { postId, postComments, deleteComment, writeComment };
+  const modifyComment = (
+    commentId: number,
+    content: string,
+    onSuccess: (rsData: RsData) => void,
+  ) => {
+    apiFetch(`/api/v1/posts/${postId}/comments/${commentId}`, {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+    })
+      .then((rsData) => {
+        setPostComments((prev) =>
+          prev == null
+            ? prev
+            : prev.map((c) => (c.id == commentId ? { ...c, content } : c)),
+        );
+        onSuccess(rsData);
+      })
+      .catch(alertError);
+  };
+
+  return { postId, postComments, deleteComment, writeComment, modifyComment };
 }
 
 function PostInfo({ postState }: { postState: ReturnType<typeof usePost> }) {
@@ -167,7 +187,8 @@ function PostCommentListItem({
   comment: PostCommentDto;
   postCommentsState: PostCommentsState;
 }) {
-  const { deleteComment } = postCommentsState;
+  const { deleteComment, modifyComment } = postCommentsState;
+  const [modifyMode, setModifyMode] = useState(false);
 
   const handleDelete = () => {
     if (!confirm(`${comment.id}번 댓글을 삭제하시겠습니까?`)) return;
@@ -175,12 +196,53 @@ function PostCommentListItem({
     deleteComment(comment.id, (rsData) => alert(rsData.msg));
   };
 
+  const handleModify = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const form = e.currentTarget;
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
+
+    contentTextarea.value = contentTextarea.value.trim();
+    if (contentTextarea.value.length < 2) {
+      alert("댓글을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    modifyComment(comment.id, contentTextarea.value, (rsData) => {
+      alert(rsData.msg);
+      setModifyMode(false);
+    });
+  };
+
   return (
     <li>
-      {comment.id} : {comment.content}
+      {comment.id} : {!modifyMode && comment.content}
+      <button className="ml-2" onClick={() => setModifyMode(!modifyMode)}>
+        {modifyMode ? "수정취소" : "수정"}
+      </button>
       <button className="ml-2" onClick={handleDelete}>
         삭제
       </button>
+
+      {modifyMode && (
+        <form onSubmit={handleModify} className="flex flex-col gap-2 p-2">
+          <textarea
+            className="border p-2 rounded"
+            name="content"
+            placeholder="댓글 내용"
+            maxLength={100}
+            rows={3}
+            defaultValue={comment.content}
+            autoFocus
+          />
+          <button className="border p-2 rounded" type="submit">
+            저장
+          </button>
+        </form>
+      )}
     </li>
   );
 }
