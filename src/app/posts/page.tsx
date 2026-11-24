@@ -1,24 +1,18 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
+import type { PostDto } from "@/type/post";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type PostDto = {
-  id: number;
-  createDate: string;
-  modifyDate: string;
-  title: string;
-  content: string;
-};
-
 export default function Page() {
-  const [posts, setPosts] = useState<PostDto[]>([]);
+  const [posts, setPosts] = useState<PostDto[] | null>(null);
 
   useEffect(() => {
-    fetch("http://localhost:8080/api/v1/posts")
-      .then((res) => res.json())
-      .then(setPosts);
+    apiFetch("/api/v1/posts").then(setPosts);
   }, []);
+
+  if (posts == null) return <div>로딩중...</div>;
 
   return (
     <>
@@ -28,17 +22,19 @@ export default function Page() {
         <Link href="/posts/write">글 작성</Link>
       </div>
 
-      {posts.length == 0 && <div>로딩중...</div>}
+      {posts.length == 0 && <div>글이 없습니다.</div>}
 
-      <ul>
-        {posts.map((post) => (
-          <li key={post.id}>
-            <Link href={`/posts/${post.id}`}>
-              {post.id} : {post.title}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {posts.length > 0 && (
+        <ul>
+          {posts.map((post) => (
+            <li key={post.id}>
+              <Link href={`/posts/${post.id}`}>
+                {post.id} : {post.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </>
   );
 }

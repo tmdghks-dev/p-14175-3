@@ -1,5 +1,6 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
 import { useRouter } from "next/navigation";
 
 export default function Page() {
@@ -9,27 +10,37 @@ export default function Page() {
     e.preventDefault();
 
     const form = e.currentTarget;
-    const title = form.elements.namedItem("title") as HTMLInputElement;
-    const content = form.elements.namedItem("content") as HTMLTextAreaElement;
+    const titleInput = form.elements.namedItem("title") as HTMLInputElement;
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
 
-    fetch("http://localhost:8080/api/v1/posts", {
+    titleInput.value = titleInput.value.trim();
+    if (titleInput.value.length < 2) {
+      alert("제목을 2자 이상 입력해주세요.");
+      titleInput.focus();
+      return;
+    }
+
+    contentTextarea.value = contentTextarea.value.trim();
+    if (contentTextarea.value.length < 2) {
+      alert("내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    apiFetch("/api/v1/posts", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
-        title: title.value,
-        content: content.value,
+        title: titleInput.value,
+        content: contentTextarea.value,
       }),
-    }).then(async (res) => {
-      const rsData = await res.json();
-
-      alert(rsData.msg);
-
-      if (!res.ok) return;
-
-      router.replace(`/posts/${rsData.data.id}`);
-    });
+    })
+      .then((rsData) => {
+        alert(rsData.msg);
+        router.replace(`/posts/${rsData.data.id}`);
+      })
+      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
   };
 
   return (
@@ -42,12 +53,14 @@ export default function Page() {
           type="text"
           name="title"
           placeholder="제목"
+          maxLength={100}
           autoFocus
         />
         <textarea
           className="border p-2 rounded"
           name="content"
           placeholder="내용"
+          maxLength={5000}
           rows={10}
         />
         <button className="border p-2 rounded" type="submit">

@@ -1,33 +1,21 @@
 "use client";
 
+import { apiFetch } from "@/lib/backend/client";
+import type { PostWithContentDto } from "@/type/post";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
-type PostDto = {
-  id: number;
-  createDate: string;
-  modifyDate: string;
-  title: string;
-  content: string;
-};
 
 export default function Page() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [post, setPost] = useState<PostDto | null>(null);
+  const [post, setPost] = useState<PostWithContentDto | null>(null);
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/v1/posts/${id}`)
-      .then(async (res) => {
-        const data = await res.json();
-
-        if (!res.ok) {
-          alert(data.msg);
-          router.replace("/posts");
-          return;
-        }
-
-        setPost(data);
+    apiFetch(`/api/v1/posts/${id}`)
+      .then(setPost)
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+        router.replace("/posts");
       });
   }, [id, router]);
 
@@ -35,27 +23,37 @@ export default function Page() {
     e.preventDefault();
 
     const form = e.currentTarget;
-    const title = form.elements.namedItem("title") as HTMLInputElement;
-    const content = form.elements.namedItem("content") as HTMLTextAreaElement;
+    const titleInput = form.elements.namedItem("title") as HTMLInputElement;
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
 
-    fetch(`http://localhost:8080/api/v1/posts/${id}`, {
+    titleInput.value = titleInput.value.trim();
+    if (titleInput.value.length < 2) {
+      alert("제목을 2자 이상 입력해주세요.");
+      titleInput.focus();
+      return;
+    }
+
+    contentTextarea.value = contentTextarea.value.trim();
+    if (contentTextarea.value.length < 2) {
+      alert("내용을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    apiFetch(`/api/v1/posts/${id}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
       body: JSON.stringify({
-        title: title.value,
-        content: content.value,
+        title: titleInput.value,
+        content: contentTextarea.value,
       }),
-    }).then(async (res) => {
-      const rsData = await res.json();
-
-      alert(rsData.msg);
-
-      if (!res.ok) return;
-
-      router.replace(`/posts/${id}`);
-    });
+    })
+      .then((rsData) => {
+        alert(rsData.msg);
+        router.replace(`/posts/${id}`);
+      })
+      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
   };
 
   if (post == null) return <div>로딩중...</div>;
@@ -70,6 +68,7 @@ export default function Page() {
           type="text"
           name="title"
           placeholder="제목"
+          maxLength={100}
           defaultValue={post.title}
           autoFocus
         />
@@ -77,6 +76,7 @@ export default function Page() {
           className="border p-2 rounded"
           name="content"
           placeholder="내용"
+          maxLength={5000}
           rows={10}
           defaultValue={post.content}
         />

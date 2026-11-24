@@ -3,26 +3,14 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/backend/client";
+import type { PostCommentDto, PostWithContentDto } from "@/type/post";
 
-type PostDto = {
-  id: number;
-  createDate: string;
-  modifyDate: string;
-  title: string;
-  content: string;
-};
-
-type PostCommentDto = {
-  id: number;
-  createDate: string;
-  modifyDate: string;
-  content: string;
-};
 
 export default function Page() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
-  const [post, setPost] = useState<PostDto | null>(null);
+  const [post, setPost] = useState<PostWithContentDto | null>(null);
   const [postComments, setPostComments] = useState<PostCommentDto[] | null>(
     null,
   );
@@ -30,84 +18,68 @@ export default function Page() {
   const deletePost = () => {
     if (!confirm(`${id}번 글을 삭제하시겠습니까?`)) return;
 
-    fetch(`http://localhost:8080/api/v1/posts/${id}`, {
-      method: "DELETE",
-    })
-      .then((res) => res.json())
+    apiFetch(`/api/v1/posts/${id}`, { method: "DELETE" })
       .then((rsData) => {
         alert(rsData.msg);
         router.replace("/posts");
-      });
+      })
+      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
   };
 
   const deleteComment = (commentId: number) => {
     if (!confirm(`${commentId}번 댓글을 삭제하시겠습니까?`)) return;
 
-    fetch(`http://localhost:8080/api/v1/posts/${id}/comments/${commentId}`, {
-      method: "DELETE",
-    })
-      .then(async (res) => {
-        const rsData = await res.json();
-
+    apiFetch(`/api/v1/posts/${id}/comments/${commentId}`, { method: "DELETE" })
+      .then((rsData) => {
         alert(rsData.msg);
-
-        if (!res.ok) return;
-
         setPostComments((prev) =>
           prev == null
             ? prev
             : prev.filter((comment) => comment.id != commentId),
         );
-      });
+      })
+      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
   };
 
   const writeComment = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const form = e.currentTarget;
-    const content = form.elements.namedItem("content") as HTMLTextAreaElement;
+    const contentTextarea = form.elements.namedItem(
+      "content",
+    ) as HTMLTextAreaElement;
 
-    fetch(`http://localhost:8080/api/v1/posts/${id}/comments`, {
+    contentTextarea.value = contentTextarea.value.trim();
+    if (contentTextarea.value.length < 2) {
+      alert("댓글을 2자 이상 입력해주세요.");
+      contentTextarea.focus();
+      return;
+    }
+
+    apiFetch(`/api/v1/posts/${id}/comments`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        content: content.value,
-      }),
-    }).then(async (res) => {
-      const rsData = await res.json();
-
-      alert(rsData.msg);
-
-      if (!res.ok) return;
-
-      setPostComments((prev) =>
-        prev == null ? [rsData.data] : [...prev, rsData.data],
-      );
-
-      content.value = "";
-      content.focus();
-    });
+      body: JSON.stringify({ content: contentTextarea.value }),
+    })
+      .then((rsData) => {
+        alert(rsData.msg);
+        setPostComments((prev) =>
+          prev == null ? [rsData.data] : [...prev, rsData.data],
+        );
+        contentTextarea.value = "";
+        contentTextarea.focus();
+      })
+      .catch((error) => alert(`${error.resultCode} : ${error.msg}`));
   };
 
   useEffect(() => {
-    fetch(`http://localhost:8080/api/v1/posts/${id}`)
-      .then(async (res) => {
-        const data = await res.json();
-
-        if (!res.ok) {
-          alert(data.msg);
-          router.replace("/posts");
-          return;
-        }
-
-        setPost(data);
+    apiFetch(`/api/v1/posts/${id}`)
+      .then(setPost)
+      .catch((error) => {
+        alert(`${error.resultCode} : ${error.msg}`);
+        router.replace("/posts");
       });
 
-    fetch(`http://localhost:8080/api/v1/posts/${id}/comments`)
-      .then((res) => res.json())
-      .then(setPostComments);
+    apiFetch(`/api/v1/posts/${id}/comments`).then(setPostComments);
   }, [id, router]);
 
   if (post == null) return <div>로딩중...</div>;
@@ -132,6 +104,7 @@ export default function Page() {
           className="border p-2 rounded"
           name="content"
           placeholder="댓글 내용"
+          maxLength={100}
           rows={3}
         />
         <button className="border p-2 rounded" type="submit">
